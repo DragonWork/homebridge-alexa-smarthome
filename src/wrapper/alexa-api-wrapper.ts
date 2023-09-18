@@ -70,6 +70,25 @@ export class AlexaApiWrapper {
     );
   }
 
+  getRoutines(): TaskEither<AlexaApiError, void> {
+    return pipe(
+      TE.tryCatch(
+        () =>
+          AlexaApiWrapper.toPromise<unknown>(
+            this.alexaRemote.getAutomationRoutines.bind(this.alexaRemote, 2000),
+          ),
+        (reason) =>
+          new HttpError(
+            `Error getting automation routines. Reason: ${
+              (reason as Error).message
+            }`,
+          ),
+      ),
+      // eslint-disable-next-line no-console
+      TE.map(routines => console.info(JSON.stringify({routines}))),
+    );
+  }
+
   saveDeviceCapabilities(): TaskEither<AlexaApiError, void> {
     return pipe(
       TE.tryCatch(

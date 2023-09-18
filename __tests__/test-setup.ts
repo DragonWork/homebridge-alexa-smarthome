@@ -19,7 +19,8 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-global.MockLogger = new Logger();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, no-console
+global.MockLogger = ((msg) => console.log(msg)) as any;
 
 global.createPlatform = (): AlexaSmartHomePlatform =>
   new AlexaSmartHomePlatform(
@@ -31,6 +32,7 @@ global.createPlatform = (): AlexaSmartHomePlatform =>
 global.createPlatformConfig = (): AlexaPlatformConfig => ({
   platform: 'HomebridgeAlexaSmartHome',
   devices: [],
+  routines: [],
   amazonDomain: 'amazon.com',
   language: 'en-US',
   auth: {

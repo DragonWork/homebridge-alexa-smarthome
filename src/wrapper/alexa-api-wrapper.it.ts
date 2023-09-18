@@ -84,6 +84,17 @@ it('should set device volume', async () => {
   expect(E.match(constFalse, constTrue)(result)).toStrictEqual(true);
 });
 
+it('should get routines', async () => {
+  // given
+  const wrapper = getAlexaApiWrapper(alexa);
+
+  // when
+  const result = await wrapper.getRoutines()();
+
+  // then
+  expect(E.match(constFalse, constTrue)(result)).toStrictEqual(true);
+});
+
 async function getAlexaRemote(): Promise<AlexaRemote> {
   const alexaRemote = new AlexaRemote();
   const auth = E.getOrElse(constant({} as Authentication))(

@@ -10,10 +10,22 @@
         "description": "List of smart home device names to add as HomeKit accessories. If no devices are specified, the plugin will attempt to add all supported accessories.",
         "type": "array",
         "uniqueItems": true,
-        "required": true,
+        "required": false,
         "default": [],
         "items": {
           "title": "Device name",
+          "type": "string"
+        }
+      },
+      "routines": {
+        "title": "Routine names",
+        "description": "List of Alexa routine names. These will appear in HomeKit as switches",
+        "type": "array",
+        "uniqueItems": true,
+        "required": false,
+        "default": [],
+        "items": {
+          "title": "Routine",
           "type": "string"
         }
       },

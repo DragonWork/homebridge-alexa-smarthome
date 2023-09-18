@@ -31,6 +31,7 @@ import * as util from './util';
 import { getOrElse } from './util/fp-util';
 import { PluginLogger } from './util/plugin-logger';
 import { AlexaApiWrapper } from './wrapper/alexa-api-wrapper';
+import { ValidationError } from './domain/homebridge/errors';
 
 export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
   public readonly HAP: API['hap'] = this.api.hap;
@@ -62,7 +63,7 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
       this.config = config;
     } else {
       this.log.error(
-        'Missing configuration for this plugin to work, see the documentation for initial setup.',
+        'Missing configuration for this plugin to work, see the documentation for initial setup',
       )();
       return;
     }
@@ -227,18 +228,19 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
     );
     return pipe(
       this.alexaApi.getDevices(),
-      TE.tapIO((devices) =>
+      TE.map(A.filter(({ providerData: pd }) => pd.categoryType !== 'GROUP')),
+      TE.tapIO(({ length }) =>
         this.log.debug(
-          `Found ${devices.length} devices connected to the current Alexa account.`,
+          `Found ${length} devices connected to the current Alexa account`,
         ),
       ),
       TE.tap(
         flow(
-          A.filterMap(({ displayName, providerData }) =>
-            providerData.categoryType !== 'GROUP'
-              ? O.of({ displayName, deviceType: providerData.deviceType })
-              : O.none,
-          ),
+          A.map(({ displayName, providerData }) => ({
+            displayName,
+            deviceType: providerData.deviceType,
+            enabled: providerData.enabled,
+          })),
           util.stringifyJson,
           TE.fromEither,
           TE.tapIO((json) =>
@@ -247,20 +249,29 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
         ),
       ),
       TE.map(
-        A.filter((d: SmartHomeDevice) =>
+        A.filter((d) =>
           A.isEmpty(deviceFilter)
             ? true
-            : deviceFilter.includes(d.displayName.trim()),
+            : deviceFilter.some((filter) => filter === d.displayName.trim()),
         ),
       ),
       TE.tapIO((devices) =>
         devices.length === deviceFilter.length
           ? this.log.debug(
-            `Found all ${deviceFilter.length} devices in plugin settings.`,
-          )
+              `Found all ${deviceFilter.length} devices in plugin settings`,
+            )
           : this.log.warn(
-            `${deviceFilter.length} devices found in plugin settings but only ${devices.length} matched.`,
-          ),
+              `${deviceFilter.length} devices found in plugin settings but ${devices.length} matched`,
+            ),
+      ),
+      TE.flatMapEither((devices) =>
+        devices.length > 0
+          ? E.of(devices)
+          : E.left(
+              new ValidationError(
+                'No Alexa devices configured. Shutting down plugin',
+              ),
+            ),
       ),
     );
   }
@@ -416,10 +427,10 @@ export class AlexaSmartHomePlatform implements DynamicPlatformPlugin {
         acc.isExternalAccessory
           ? this.api.publishExternalAccessories(settings.PLUGIN_NAME, [platAcc])
           : this.api.registerPlatformAccessories(
-            settings.PLUGIN_NAME,
-            settings.PLATFORM_NAME,
-            [platAcc],
-          );
+              settings.PLUGIN_NAME,
+              settings.PLATFORM_NAME,
+              [platAcc],
+            );
         this.activeDeviceIds.push(device.id);
         return E.of(constVoid());
       }),
