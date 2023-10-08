@@ -25,6 +25,13 @@ import {
   isTemperatureValue,
 } from '../domain/alexa/temperature';
 
+const MIN_TARGET_TEMP = 10;
+const MAX_TARGET_TEMP = 38;
+const MIN_COOL_TEMP = 10;
+const MAX_COOL_TEMP = 35;
+const MIN_HEAT_TEMP = 0;
+const MAX_HEAT_TEMP = 25;
+
 export default class ThermostatAccessory extends BaseAccessory {
   static requiredOperations: SupportedActionsType[] = ['setTargetTemperature'];
   service: Service;
@@ -180,14 +187,14 @@ export default class ThermostatAccessory extends BaseAccessory {
 
     const targetTempOnAuto = this.calculateTargetTemp();
     if (this.onInvalidOrAutoMode() && O.isSome(targetTempOnAuto)) {
-      return targetTempOnAuto.value;
+      return this.forceTempToAllowedRange(MIN_TARGET_TEMP, MAX_TARGET_TEMP)(targetTempOnAuto.value);
     } else {
       return pipe(
         this.getState(determineTargetTemp),
         TE.match((e) => {
           this.logWithContext('errorT', 'Get target temperature', e);
           throw this.serviceCommunicationError;
-        }, identity),
+        }, this.forceTempToAllowedRange(MIN_TARGET_TEMP, MAX_TARGET_TEMP)),
       )();
     }
   }
@@ -202,7 +209,7 @@ export default class ThermostatAccessory extends BaseAccessory {
       throw this.invalidValueError;
     }
     const units = maybeTemp.value.scale.toLowerCase() as TemperatureScale;
-    const newTemp = tempMapper.mapHomeKitTempToAlexa(value, units);
+    const newTemp = tempMapper.mapHomeKitTempToAlexa(this.forceTempToAllowedRange(MIN_TARGET_TEMP, MAX_TARGET_TEMP)(value), units);
     return pipe(
       this.platform.alexaApi.setDeviceState(
         this.device.id,
@@ -257,10 +264,13 @@ export default class ThermostatAccessory extends BaseAccessory {
         TE.match((e) => {
           this.logWithContext('errorT', 'Get cooling temperature', e);
           throw this.serviceCommunicationError;
-        }, identity),
+        }, this.forceTempToAllowedRange(MIN_COOL_TEMP, MAX_COOL_TEMP)),
       )();
     } else {
-      return autoTemp.value;
+      return this.forceTempToAllowedRange(
+        MIN_COOL_TEMP,
+        MAX_COOL_TEMP,
+      )(autoTemp.value);
     }
   }
 
@@ -278,7 +288,10 @@ export default class ThermostatAccessory extends BaseAccessory {
       throw this.invalidValueError;
     }
     const units = maybeHeatTemp.value.scale.toLowerCase() as TemperatureScale;
-    const newCoolTemp = tempMapper.mapHomeKitTempToAlexa(value, units);
+    const newCoolTemp = tempMapper.mapHomeKitTempToAlexa(
+      this.forceTempToAllowedRange(MIN_COOL_TEMP, MAX_COOL_TEMP)(value),
+      units,
+    );
 
     return pipe(
       this.platform.alexaApi.setDeviceState(
@@ -338,10 +351,13 @@ export default class ThermostatAccessory extends BaseAccessory {
         TE.match((e) => {
           this.logWithContext('errorT', 'Get heating temperature', e);
           throw this.serviceCommunicationError;
-        }, identity),
+        }, this.forceTempToAllowedRange(MIN_HEAT_TEMP, MAX_HEAT_TEMP)),
       )();
     } else {
-      return autoTemp.value;
+      return this.forceTempToAllowedRange(
+        MIN_HEAT_TEMP,
+        MAX_HEAT_TEMP,
+      )(autoTemp.value);
     }
   }
 
@@ -359,7 +375,10 @@ export default class ThermostatAccessory extends BaseAccessory {
       throw this.invalidValueError;
     }
     const units = maybeCoolTemp.value.scale.toLowerCase() as TemperatureScale;
-    const newHeatTemp = tempMapper.mapHomeKitTempToAlexa(value, units);
+    const newHeatTemp = tempMapper.mapHomeKitTempToAlexa(
+      this.forceTempToAllowedRange(MIN_HEAT_TEMP, MAX_HEAT_TEMP)(value),
+      units,
+    );
 
     return pipe(
       this.platform.alexaApi.setDeviceState(
@@ -446,5 +465,9 @@ export default class ThermostatAccessory extends BaseAccessory {
       this.getCacheValue('Alexa.ThermostatController', 'thermostatMode'),
       O.match(constFalse, (m) => m === 'AUTO'),
     );
+  }
+
+  private forceTempToAllowedRange(min: number, max: number) {
+    return (temp: number) => Math.max(min, Math.min(max, temp));
   }
 }
