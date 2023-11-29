@@ -9,6 +9,7 @@ export const SupportedDeviceTypes = [
   'THERMOSTAT',
   'ALEXA_VOICE_ENABLED',
   'AIR_QUALITY_MONITOR',
+  'VACUUM_CLEANER',
 ];
 
 export type AmazonDomain =
@@ -60,6 +61,7 @@ export const SupportedActions = {
   turnOff: 'turnOff',
   setBrightness: 'setBrightness',
   setTargetTemperature: 'setTargetTemperature',
+  setThermostatMode: 'setThermostatMode',
 } as const;
 
 export type SupportedActionsType = keyof typeof SupportedActions;
